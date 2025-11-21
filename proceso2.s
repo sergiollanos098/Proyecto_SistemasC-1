@@ -1,91 +1,67 @@
-/* proceso2.s - Versión Blindada (Strings en Stack) */
+/* proceso2.s */
+# modifica cooling_state usando puntero
 .global check_cooling
 
-.data
-state:   .word 0   # 0=OFF, 1=ON
-# Ya no usamos .string porque fallaba
-
 .text
+# check_cooling(int temp, int* state_addr)
+# a0 = temperatura actual
+# a1 = direccion de la variable "cooling_state" en el stack de main
 check_cooling:
-    # Prologo
     addi sp, sp, -16
-    sw ra, 12(sp)
-    sw s0, 8(sp)     # Guardamos s0
+    sw ra, 12(sp)       # Guardar ra
+    sw s0, 8(sp)        # Guardar s0 (temperatura)
+    sw s1, 4(sp)        # Guardar s1 (direccion del estado)
     
-    mv s0, a0        # s0 = temperatura
+    mv s0, a0           # s0 = temp
+    mv s1, a1           # s1 = &cooling_state
     
-    # Cargar estado
-    la t0, state
-    lw t1, 0(t0)
+    # Cargar el estado actual desde la direccion dada por C 
+    lw t1, 0(s1)        # t1 = estado (0 = OFF, 1 = ON)
     
-    # Logica de control
-    bnez t1, check_off_logic  # Si esta ON (1), ver si apagamos
-    
-    # Logica ON: Si Temp > 90
+    # Si el estado actual es ON, evaluar si debemos apagar
+    bnez t1, check_off_logic
+
+    # Estado OFF, encender si la temperatura supera 90
     li t2, 90
     bgt s0, t2, action_turn_on
     j end
 
 check_off_logic:
-    # Logica OFF: Si Temp < 60
+    # Estado ON, apagar si temperatura cae por debajo de 60
     li t2, 60
     blt s0, t2, action_turn_off
     j end
 
 action_turn_on:
     li t1, 1
-    la t0, state
-    sw t1, 0(t0)
+    sw t1, 0(s1)        # Guardar nuevo estado (1) en la direccion proporcionada
     
-    # --- IMPRIMIR "[ON] " DESDE EL STACK ---
-    # Construimos la cadena manualmente: ' ' ']' 'N' 'O' '['
-    # ASCII: [=91, O=79, N=78, ]=93, space=32
+    # Imprimir "[ON] "
+    li t3, 32; sb t3, 4(sp)   
+    li t3, 93; sb t3, 3(sp)   
+    li t3, 78; sb t3, 2(sp)   
+    li t3, 79; sb t3, 1(sp)   
+    li t3, 91; sb t3, 0(sp)   
     
-    li t3, 32        # Espacio final
-    sb t3, 4(sp)
-    li t3, 93        # ']'
-    sb t3, 3(sp)
-    li t3, 78        # 'N'
-    sb t3, 2(sp)
-    li t3, 79        # 'O'
-    sb t3, 1(sp)
-    li t3, 91        # '['
-    sb t3, 0(sp)
-    
-    li a7, 64        # Syscall write
-    li a0, 1         # STDOUT
-    mv a1, sp        # Dirección del stack
-    li a2, 5         # Longitud 5 chars
-    ecall
+    li a7, 64; li a0, 1; mv a1, sp; li a2, 5; ecall
     j end
 
 action_turn_off:
     li t1, 0
-    la t0, state
-    sw t1, 0(t0)
+    sw t1, 0(s1)        # Guardar nuevo estado (0) en la direccion proporcionada
     
-    # --- IMPRIMIR "[OF] " DESDE EL STACK ---
-    # Abreviamos a [OF] para mantenerlo simple
+    # Imprimir "[OF] "
+    li t3, 32; sb t3, 4(sp)   
+    li t3, 93; sb t3, 3(sp)   
+    li t3, 70; sb t3, 2(sp)   
+    li t3, 79; sb t3, 1(sp)   
+    li t3, 91; sb t3, 0(sp)   
     
-    li t3, 32        # Espacio
-    sb t3, 4(sp)
-    li t3, 93        # ']'
-    sb t3, 3(sp)
-    li t3, 70        # 'F'
-    sb t3, 2(sp)
-    li t3, 79        # 'O'
-    sb t3, 1(sp)
-    li t3, 91        # '['
-    sb t3, 0(sp)
-    
-    li a7, 64
-    li a0, 1
-    mv a1, sp
-    li a2, 5
-    ecall
+    li a7, 64; li a0, 1; mv a1, sp; li a2, 5; ecall
 
 end:
-    lw s0, 8(sp)
-    lw ra, 12(sp)
+    lw s1, 4(sp)        # Restaurar s1
+    lw s0, 8(sp)        # Restaurar s0
+    lw ra, 12(sp)       # Restaurar ra
     addi sp, sp, 16
     ret
